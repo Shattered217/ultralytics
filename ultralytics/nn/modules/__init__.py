@@ -60,6 +60,7 @@ from .block import (
     SCDown,
     TorchVision,
 )
+from .extra_modules import EMA, SPDConv
 from .conv import (
     CBAM,
     ChannelAttention,
@@ -113,11 +114,13 @@ __all__ = (
     "CIB",
     "DFL",
     "ELAN1",
+    "EMA",
     "MLP",
     "OBB",
     "PSA",
     "SPP",
     "SPPELAN",
+    "SPDConv",
     "SPPF",
     "A2C2f",
     "AConv",
