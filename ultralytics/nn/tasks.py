@@ -19,10 +19,12 @@ from ultralytics.nn.modules import (
     C3,
     C3TR,
     ELAN1,
+    EMA,
     OBB,
     PSA,
     SPP,
     SPPELAN,
+    SPDConv,
     SPPF,
     A2C2f,
     AConv,
@@ -1527,6 +1529,8 @@ def parse_model(d, ch, verbose=True):
             GhostBottleneck,
             SPP,
             SPPF,
+            SPDConv,
+            EMA,
             C2fPSA,
             C2PSA,
             DWConv,
@@ -1588,14 +1592,26 @@ def parse_model(d, ch, verbose=True):
                     args[j] = locals()[a] if a in locals() else ast.literal_eval(a)
         n = n_ = max(round(n * depth), 1) if n > 1 else n  # depth gain
         if m in base_modules:
-            c1, c2 = ch[f], args[0]
-            if c2 != nc:  # if c2 != nc (e.g., Classify() output)
-                c2 = make_divisible(min(c2, max_channels) * width, 8)
-            if m is C2fAttn:  # set 1) embed channels and 2) num heads
-                args[1] = make_divisible(min(args[1], max_channels // 2) * width, 8)
-                args[2] = int(max(round(min(args[2], max_channels // 2 // 32)) * width, 1) if args[2] > 1 else args[2])
-
-            args = [c1, c2, *args[1:]]
+            c1 = ch[f]
+            
+            # 处理 SPDConv: 输出通道 = 输入通道 * 4
+            if m is SPDConv:
+                c2 = c1 * 4
+                args = [c1, c2]
+            # 处理 EMA: 输出通道 = 输入通道，args = [c1]
+            elif m is EMA:
+                c2 = c1
+                args = [c1]
+            else:
+                c2 = args[0]
+                if c2 != nc:  # if c2 != nc (e.g., Classify() output)
+                    c2 = make_divisible(min(c2, max_channels) * width, 8)
+                if m is C2fAttn:  # set 1) embed channels and 2) num heads
+                    args[1] = make_divisible(min(args[1], max_channels // 2) * width, 8)
+                    args[2] = int(max(round(min(args[2], max_channels // 2 // 32)) * width, 1) if args[2] > 1 else args[2])
+                
+                args = [c1, c2, *args[1:]]
+            
             if m in repeat_modules:
                 args.insert(2, n)  # number of repeats
                 n = 1
