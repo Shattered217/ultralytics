@@ -13,6 +13,8 @@ import torch.nn as nn
 from ultralytics.nn.autobackend import check_class_names
 from ultralytics.nn.modules import (
     AIFI,
+    BiFPN_Add2,
+    BiFPN_Add3,
     C1,
     C2,
     C2PSA,
@@ -48,7 +50,11 @@ from ultralytics.nn.modules import (
     Detect,
     DWConv,
     DWConvTranspose2d,
+    DySample,
+    DySample_Simple,
     Focus,
+    GSBottleneck,
+    GSConv,
     GhostBottleneck,
     GhostConv,
     HGBlock,
@@ -66,6 +72,7 @@ from ultralytics.nn.modules import (
     SCDown,
     Segment,
     TorchVision,
+    VoVGSCSP,
     WorldDetect,
     YOLOEDetect,
     YOLOESegment,
@@ -1557,6 +1564,12 @@ def parse_model(d, ch, verbose=True):
             SCDown,
             C2fCIB,
             A2C2f,
+            GSConv,
+            GSBottleneck,
+            VoVGSCSP,
+            DySample_Simple,
+            BiFPN_Add2,
+            BiFPN_Add3,
         }
     )
     repeat_modules = frozenset(  # modules with 'repeat' arguments
@@ -1594,7 +1607,7 @@ def parse_model(d, ch, verbose=True):
         if m in base_modules:
             c1 = ch[f]
             
-            # 处理 SPDConv: 输出通道 = 输入通道 * 4
+            # 处理 SPDConv: 输出通道 = 输入通道 * 4 (Space-to-Depth 固定比例)
             if m is SPDConv:
                 c2 = c1 * 4
                 args = [c1, c2]
@@ -1602,6 +1615,15 @@ def parse_model(d, ch, verbose=True):
             elif m is EMA:
                 c2 = c1
                 args = [c1]
+            elif m in {BiFPN_Add2, BiFPN_Add3}:
+                # BiFPN: 输出通道从 args 中读取（如果有的话）
+                c2 = args[0] if args else ch[f[0]] if isinstance(f, list) else ch[f]
+                args = [c2]
+            elif m is DySample_Simple:
+                # DySample_Simple: 输出通道 = 输入通道，scale 从 args 读取
+                c2 = ch[f]
+                # args = [scale] 或 [scale, groups] → 转换为 [in_channels, scale, ...]
+                args = [c2, *args] if args else [c2, 2]
             else:
                 c2 = args[0]
                 if c2 != nc:  # if c2 != nc (e.g., Classify() output)
@@ -1639,6 +1661,22 @@ def parse_model(d, ch, verbose=True):
             args = [ch[f]]
         elif m is Concat:
             c2 = sum(ch[x] for x in f)
+        elif m is BiFPN_Add2:
+            # BiFPN_Add2: 2输入加权融合，输出通道 = 第一个输入通道
+            if isinstance(f, (list, tuple)) and len(f) >= 2:
+                c2 = ch[f[0]]  # 假设所有输入通道相同
+                args = [c2]
+            else:
+                c2 = ch[f] if isinstance(f, int) else ch[f[0]]
+                args = [c2]
+        elif m is BiFPN_Add3:
+            # BiFPN_Add3: 3输入加权融合，输出通道 = 第一个输入通道
+            if isinstance(f, (list, tuple)) and len(f) >= 3:
+                c2 = ch[f[0]]
+                args = [c2]
+            else:
+                c2 = ch[f] if isinstance(f, int) else ch[f[0]]
+                args = [c2]
         elif m in frozenset(
             {Detect, WorldDetect, YOLOEDetect, Segment, YOLOESegment, Pose, OBB, ImagePoolingAttn, v10Detect}
         ):

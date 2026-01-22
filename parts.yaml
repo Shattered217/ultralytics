@@ -1,0 +1,41 @@
+# YOLO数据集配置文件
+# 用于训练YOLOv5/YOLOv8等模型
+
+# 数据集路径（相对于项目根目录的路径）
+path: C:/Users/LENOVO/Desktop/SmallPartDet/datasets  # 数据集根目录
+train: images/train  # 训练图像目录
+val: images/val      # 验证图像目录
+test: images/test    # 测试图像目录
+
+# 类别数量
+nc: 13
+
+# 类别名称
+names:
+  0: Double hexagonal column
+  1: Flange nut
+  2: Hexagon nut
+  3: Hexagon pillar
+  4: Hexagon screw
+  5: Hexagonal steel column
+  6: Horizontal bubble
+  7: Keybar
+  8: Plastic cushion pillar
+  9: Rectangular nut
+  10: Round head screw
+  11: Spring washer
+  12: T-shaped screw
+
+# # 类别数量
+# nc: 7
+
+# # 类别名称
+# names:
+#   0:	M6_hex_nut
+#   1:	M8_hex_nut
+#   2:	M6_csk_hex_socket_screw
+#   3:	M6_hex_head_bolt
+#   4:	M8_round_nut
+#   5:	M6_nylon_lock_nut
+#   6:	2020_corner_bracket
+

@@ -60,7 +60,7 @@ from .block import (
     SCDown,
     TorchVision,
 )
-from .extra_modules import EMA, SPDConv
+from .extra_modules import EMA, SPDConv, BiFPN_Add2, BiFPN_Add3, GSConv, VoVGSCSP, DySample, DySample_Simple, GSBottleneck
 from .conv import (
     CBAM,
     ChannelAttention,
@@ -105,6 +105,8 @@ from .transformer import (
 
 __all__ = (
     "AIFI",
+    "BiFPN_Add2",
+    "BiFPN_Add3",
     "C1",
     "C2",
     "C2PSA",
@@ -147,10 +149,14 @@ __all__ = (
     "ConvTranspose",
     "DWConv",
     "DWConvTranspose2d",
+    "DySample",
+    "DySample_Simple",
     "DeformableTransformerDecoder",
     "DeformableTransformerDecoderLayer",
     "Detect",
     "Focus",
+    "GSBottleneck",
+    "GSConv",
     "GhostBottleneck",
     "GhostConv",
     "HGBlock",
@@ -178,6 +184,7 @@ __all__ = (
     "TransformerBlock",
     "TransformerEncoderLayer",
     "TransformerLayer",
+    "VoVGSCSP",
     "WorldDetect",
     "YOLOEDetect",
     "YOLOESegment",
