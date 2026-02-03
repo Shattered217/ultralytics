@@ -1,0 +1,153 @@
+# ============================================================================
+# 消融实验计划 (Ablation Experiment Plan)
+# ============================================================================
+# 定义所有消融实验的配置，用于自动化批量训练、评估和基准测试
+# 
+# 使用方法:
+#   python scripts/run_ablation.py --plan experiments/ablation_plan.yaml
+#
+# 说明:
+#   - 每个实验包含：名称、模型配置、描述
+#   - 每个实验在多个随机种子上运行
+#   - 自动执行：训练 → 评估(val+test) → 性能基准测试
+#   - 支持断点续跑（检测已有输出则跳过）
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# 实验列表 (Experiments)
+# ----------------------------------------------------------------------------
+# 6个消融实验 (E0-E7，E5/E6省略)
+experiments:
+  # E0: Baseline (YOLOv8n)
+  - name: baseline
+    model_yaml: ultralytics/cfg/models/v8/yolov8n_baseline.yaml
+    description: "Baseline model - standard YOLOv8n architecture"
+    enabled: true
+  
+  # E1: Ghost Convolution
+  - name: ghost
+    model_yaml: ultralytics/cfg/models/v8/yolov8n_ghost.yaml
+    description: "Replace Conv with GhostConv to reduce parameters"
+    enabled: true
+  
+  # E2: ECA Attention
+  - name: eca
+    model_yaml: ultralytics/cfg/models/v8/yolov8n_eca.yaml
+    description: "Add ECA attention mechanism"
+    enabled: true
+  
+  # E3: P2 Detection Layer
+  - name: p2
+    model_yaml: ultralytics/cfg/models/v8/yolov8n_p2.yaml
+    description: "Add P2 layer for small object detection"
+    enabled: true
+  
+  # E4: Ghost + ECA
+  - name: ghost_eca
+    model_yaml: ultralytics/cfg/models/v8/yolov8n_ghost_eca.yaml
+    description: "Combine Ghost convolution with ECA attention"
+    enabled: true
+  
+  # E7: Ghost + ECA + P2 (Full)
+  - name: ghost_eca_p2
+    model_yaml: ultralytics/cfg/models/v8/yolov8n_ghost_eca_p2.yaml
+    description: "Full model with all modifications"
+    enabled: true
+
+# ----------------------------------------------------------------------------
+# 随机种子 (Random Seeds)
+# ----------------------------------------------------------------------------
+# 每个实验在多个种子上运行以评估稳定性
+seeds: [0, 1, 2]
+
+# ----------------------------------------------------------------------------
+# 训练配置 (Training Configuration)
+# ----------------------------------------------------------------------------
+train_cfg: experiments/base_train.yaml
+
+# 训练参数覆盖（可选，覆盖 base_train.yaml 中的值）
+train_overrides:
+  epochs: 200
+  batch: 8
+  imgsz: 640
+  device: 0
+  workers: 2
+
+# ----------------------------------------------------------------------------
+# 评估配置 (Evaluation Configuration)
+# ----------------------------------------------------------------------------
+eval_cfg: experiments/base_eval.yaml
+
+# 评估的数据集split
+eval_splits: [val, test]
+
+# ----------------------------------------------------------------------------
+# 基准测试配置 (Benchmark Configuration)
+# ----------------------------------------------------------------------------
+benchmark_enabled: true
+
+benchmark_config:
+  imgsz: 640
+  device: 0
+  warmup: 50
+  iters: 300
+  batch: 1
+  use_benchmark_list: true  # 第一个实验创建列表，后续复用
+
+# ----------------------------------------------------------------------------
+# 执行控制 (Execution Control)
+# ----------------------------------------------------------------------------
+
+# 是否启用断点续跑（检测已有输出则跳过）
+resume: true
+
+# 失败处理策略
+on_failure: continue  # continue: 记录失败继续下一个 | stop: 遇到失败立即停止
+
+# 日志文件
+log_file: results/ablation_failures.log
+
+# 是否显示详细输出
+verbose: true
+
+# 并行执行（暂不支持，预留）
+parallel: false
+max_workers: 1
+
+# ----------------------------------------------------------------------------
+# 数据集配置 (Dataset Configuration)
+# ----------------------------------------------------------------------------
+# 可以在这里指定数据集，覆盖 base_train.yaml 中的设置
+# data: datasets/openparts/data.yaml
+# data: datasets/selfparts/data.yaml
+
+# ----------------------------------------------------------------------------
+# 输出目录结构 (Output Structure)
+# ----------------------------------------------------------------------------
+# results/
+#   runs/
+#     {exp_name}/
+#       seed{seed}/
+#         weights/
+#           best.pt
+#           last.pt
+#         model_config.yaml
+#         resolved_train.yaml
+#         env.json
+#         metadata.json
+#         metrics_train.json
+#         eval_val.json
+#         eval_test.json
+#   bench/
+#     benchmark_list.txt
+#     {exp_name}_seed{seed}.json
+#   ablation_failures.log
+
+# ----------------------------------------------------------------------------
+# 注意事项 (Notes)
+# ----------------------------------------------------------------------------
+# 1. 确保所有模型配置文件 (model_yaml) 存在且有效
+# 2. 第一次运行时会创建 benchmark_list.txt，后续实验复用
+# 3. 使用 --dry-run 参数可以预览执行计划而不实际运行
+# 4. 使用 --exp 参数可以只运行特定实验
+# 5. 使用 --seed 参数可以只运行特定种子

@@ -1,0 +1,55 @@
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+# YOLOv8n with Ghost modules
+# ============================================================================
+# 消融实验配置 (E1: Ghost Convolution)
+# 
+# 本配置唯一改变点：将 backbone 和 head 中的 C2f 替换为 C3Ghost
+# 
+# 改动详情：
+# - backbone: 第 2, 4, 6, 8 层的 C2f → C3Ghost
+# - head: 第 12, 15, 18, 21 层的 C2f → C3Ghost
+# - 其他所有层保持与 baseline 完全一致
+# 
+# 用途：验证 Ghost 轻量化模块对性能的影响
+# 对应实验：E1 (Ghost)
+# ============================================================================
+
+# Parameters
+nc: 80  # number of classes
+scales: # model compound scaling constants
+  # [depth, width, max_channels]
+  n: [0.33, 0.25, 1024]  # YOLOv8n-ghost: fewer parameters than baseline
+
+# YOLOv8n backbone with Ghost modules
+backbone:
+  # [from, repeats, module, args]
+  - [-1, 1, Conv, [64, 3, 2]]       # 0-P1/2
+  - [-1, 1, Conv, [128, 3, 2]]      # 1-P2/4
+  - [-1, 3, C3Ghost, [128, True]]   # 2 ← 改动：C2f → C3Ghost
+  - [-1, 1, Conv, [256, 3, 2]]      # 3-P3/8
+  - [-1, 6, C3Ghost, [256, True]]   # 4 ← 改动：C2f → C3Ghost
+  - [-1, 1, Conv, [512, 3, 2]]      # 5-P4/16
+  - [-1, 6, C3Ghost, [512, True]]   # 6 ← 改动：C2f → C3Ghost
+  - [-1, 1, Conv, [1024, 3, 2]]     # 7-P5/32
+  - [-1, 3, C3Ghost, [1024, True]]  # 8 ← 改动：C2f → C3Ghost
+  - [-1, 1, SPPF, [1024, 5]]        # 9
+
+# YOLOv8n head with Ghost modules
+head:
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]
+  - [[-1, 6], 1, Concat, [1]]       # cat backbone P4
+  - [-1, 3, C3Ghost, [512]]         # 12 ← 改动：C2f → C3Ghost
+
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]
+  - [[-1, 4], 1, Concat, [1]]       # cat backbone P3
+  - [-1, 3, C3Ghost, [256]]         # 15 (P3/8-small) ← 改动：C2f → C3Ghost
+
+  - [-1, 1, Conv, [256, 3, 2]]
+  - [[-1, 12], 1, Concat, [1]]      # cat head P4
+  - [-1, 3, C3Ghost, [512]]         # 18 (P4/16-medium) ← 改动：C2f → C3Ghost
+
+  - [-1, 1, Conv, [512, 3, 2]]
+  - [[-1, 9], 1, Concat, [1]]       # cat head P5
+  - [-1, 3, C3Ghost, [1024]]        # 21 (P5/32-large) ← 改动：C2f → C3Ghost
+
+  - [[15, 18, 21], 1, Detect, [nc]] # Detect(P3, P4, P5)
