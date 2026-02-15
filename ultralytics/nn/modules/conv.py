@@ -18,6 +18,7 @@ __all__ = (
     "ConvTranspose",
     "DWConv",
     "DWConvTranspose2d",
+    "ECA",
     "Focus",
     "GhostConv",
     "Index",
@@ -507,6 +508,56 @@ class RepConv(nn.Module):
             self.__delattr__("bn")
         if hasattr(self, "id_tensor"):
             self.__delattr__("id_tensor")
+
+
+class ECA(nn.Module):
+    """Efficient Channel Attention (ECA) module.
+
+    Lightweight channel attention that uses 1D convolution for cross-channel interaction.
+    More efficient than SE and ChannelAttention modules.
+
+    Attributes:
+        avg_pool (nn.AdaptiveAvgPool2d): Global average pooling.
+        conv (nn.Conv1d): 1D convolution for channel interaction.
+        sigmoid (nn.Sigmoid): Sigmoid activation for attention weights.
+
+    References:
+        ECA-Net: Efficient Channel Attention for Deep Convolutional Neural Networks
+        https://arxiv.org/abs/1910.03151
+    """
+
+    def __init__(self, channels: int, kernel_size: int = 3) -> None:
+        """Initialize ECA module with adaptive kernel size.
+
+        Args:
+            channels (int): Number of input channels.
+            kernel_size (int): Kernel size for 1D convolution (default: 3).
+        """
+        super().__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        # 使用 1D 卷积实现跨通道交互（比全连接层更轻量）
+        self.conv = nn.Conv1d(1, 1, kernel_size=kernel_size, padding=(kernel_size - 1) // 2, bias=False)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Apply ECA attention to input tensor.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape (B, C, H, W).
+
+        Returns:
+            (torch.Tensor): Channel-attended output tensor.
+        """
+        # 全局平均池化: (B, C, H, W) -> (B, C, 1, 1)
+        y = self.avg_pool(x)
+        # 调整维度用于 1D 卷积: (B, C, 1, 1) -> (B, 1, C)
+        y = y.squeeze(-1).transpose(-1, -2)
+        # 1D 卷积进行跨通道交互: (B, 1, C) -> (B, 1, C)
+        y = self.conv(y)
+        # 转回原始形状并应用 sigmoid: (B, 1, C) -> (B, C, 1, 1)
+        y = self.sigmoid(y.transpose(-1, -2).unsqueeze(-1))
+        # 通道注意力加权
+        return x * y.expand_as(x)
 
 
 class ChannelAttention(nn.Module):

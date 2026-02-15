@@ -60,6 +60,8 @@ classifiers = [
 ]
 
 # Required dependencies ------------------------------------------------------------------------------------------------
+# Note: For GPU support, install PyTorch with appropriate CUDA version separately
+# Example: pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
 dependencies = [
     "numpy>=1.23.0",
     "matplotlib>=3.3.0",
@@ -69,7 +71,6 @@ dependencies = [
     "requests>=2.23.0",
     "scipy>=1.4.1",
     "torch>=1.8.0",
-    "torch>=1.8.0,!=2.4.0; sys_platform == 'win32'", # Windows CPU errors w/ 2.4.0 https://github.com/ultralytics/ultralytics/issues/15049
     "torchvision>=0.9.0",
     "psutil>=5.8.0", # system utilization
     "polars>=0.20.0",
@@ -190,3 +191,12 @@ in-place = true
 [tool.codespell]
 ignore-words-list = "grey,writeable,finalY,RepResNet,Idenfy,WIT,Smoot,EHR,ROUGE,ALS,iTerm,Carmel,FPR,Hach,Calle,ore,COO,MOT,crate,nd,ned,strack,dota,ane,segway,fo,gool,winn,commend,bloc,nam,afterall,skelton,goin"
 skip = "*.pt,*.pth,*.torchscript,*.onnx,*.tflite,*.pb,*.bin,*.param,*.mlmodel,*.engine,*.npy,*.data*,*.csv,*pnnx*,*venv*,*translat*,*lock*,__pycache__*,*.ico,*.jpg,*.png,*.webp,*.avif,*.mp4,*.mov,/runs,/.git,./docs/??/*.md,./docs/mkdocs_??.yml"
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }

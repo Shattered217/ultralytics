@@ -1,0 +1,75 @@
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+# YOLOv8n with Ghost modules, ECA attention, and P2 head
+# ============================================================================
+# 消融实验配置 (E5/E7: Ghost + ECA + P2 - Full Model)
+# 
+# 本配置唯一改变点：组合所有改进（Ghost + ECA + P2检测头）
+# 
+# 改动详情：
+# - backbone 和 head 的 C2f → C3Ghost（来自 E1）
+# - 每个 C3Ghost 后插入 ECA 模块（来自 E2）
+# - 增加 P2 小目标检测头（来自 E3）
+# - 这是 E1 + E2 + E3 的完整组合
+# 
+# 用途：验证所有改进措施组合后的最终性能
+# 对应实验：E5 (Ghost + P2) 或 E7 (Full: Ghost + ECA + P2)
+# 注：如果只测试 E5，可注释掉 ECA 层；E7 使用完整配置
+# ============================================================================
+
+# Parameters
+nc: 80  # number of classes
+scales: # model compound scaling constants
+  # [depth, width, max_channels]
+  n: [0.33, 0.25, 1024]  # YOLOv8n-full: balanced params with all improvements
+
+# YOLOv8n backbone with Ghost + ECA
+backbone:
+  # [from, repeats, module, args]
+  - [-1, 1, Conv, [64, 3, 2]]       # 0-P1/2
+  - [-1, 1, Conv, [128, 3, 2]]      # 1-P2/4
+  - [-1, 3, C3Ghost, [128, True]]   # 2 ← Ghost
+  - [-1, 1, ECA, [128]]             # 3 ← ECA
+  - [-1, 1, Conv, [256, 3, 2]]      # 4-P3/8
+  - [-1, 6, C3Ghost, [256, True]]   # 5 ← Ghost
+  - [-1, 1, ECA, [256]]             # 6 ← ECA
+  - [-1, 1, Conv, [512, 3, 2]]      # 7-P4/16
+  - [-1, 6, C3Ghost, [512, True]]   # 8 ← Ghost
+  - [-1, 1, ECA, [512]]             # 9 ← ECA
+  - [-1, 1, Conv, [1024, 3, 2]]     # 10-P5/32
+  - [-1, 3, C3Ghost, [1024, True]]  # 11 ← Ghost
+  - [-1, 1, ECA, [1024]]            # 12 ← ECA
+  - [-1, 1, SPPF, [1024, 5]]        # 13
+
+# YOLOv8n head with Ghost + P2 detection
+head:
+  # P5 → P4
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]
+  - [[-1, 8], 1, Concat, [1]]       # cat backbone P4 (调整索引)
+  - [-1, 3, C3Ghost, [512]]         # 16 ← Ghost
+
+  # P4 → P3
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]
+  - [[-1, 5], 1, Concat, [1]]       # cat backbone P3 (调整索引)
+  - [-1, 3, C3Ghost, [256]]         # 19 ← Ghost
+
+  # P3 → P2 (小目标检测头)
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]
+  - [[-1, 2], 1, Concat, [1]]       # cat backbone P2 ← 新增
+  - [-1, 3, C3Ghost, [128]]         # 22 (P2/4-tiny) ← Ghost + 新增
+
+  # P2 → P3
+  - [-1, 1, Conv, [128, 3, 2]]
+  - [[-1, 19], 1, Concat, [1]]      # cat head P3
+  - [-1, 3, C3Ghost, [256]]         # 25 (P3/8-small) ← Ghost
+
+  # P3 → P4
+  - [-1, 1, Conv, [256, 3, 2]]
+  - [[-1, 16], 1, Concat, [1]]      # cat head P4
+  - [-1, 3, C3Ghost, [512]]         # 28 (P4/16-medium) ← Ghost
+
+  # P4 → P5
+  - [-1, 1, Conv, [512, 3, 2]]
+  - [[-1, 13], 1, Concat, [1]]      # cat head P5
+  - [-1, 3, C3Ghost, [1024]]        # 31 (P5/32-large) ← Ghost
+
+  - [[22, 25, 28, 31], 1, Detect, [nc]] # Detect(P2, P3, P4, P5) ← 4 个检测头

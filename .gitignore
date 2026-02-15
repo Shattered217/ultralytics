@@ -203,3 +203,13 @@ calibration_*.npy
 # Training logs
 args.yaml
 results.csv
+
+# Experiment results and cache files
+results/
+*.cache
+*.log
+ultralytics.egg-info/
+
+# Documentation files (keep only essential ones)
+docs/ABLATION_IMPLEMENTATION_CHECKLIST.md
+docs/TRAIN_RUNNER_GUIDE.md

@@ -1,0 +1,70 @@
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+# YOLOv8n with P2 detection head
+# ============================================================================
+# 消融实验配置 (E3: P2 Detection Head)
+# 
+# 本配置唯一改变点：增加 P2 (P2/4) 检测头，用于小目标检测
+# 
+# 改动详情：
+# - backbone 保持不变（保留 P2 特征层）
+# - head 增加 P2 上采样和检测分支
+# - 最终检测使用 4 个尺度：P2/4, P3/8, P4/16, P5/32
+# - 其他所有层保持与 baseline 完全一致
+# 
+# 用途：验证增加小目标检测头对性能的影响
+# 对应实验：E3 (P2 Head)
+# ============================================================================
+
+# Parameters
+nc: 80  # number of classes
+scales: # model compound scaling constants
+  # [depth, width, max_channels]
+  n: [0.33, 0.25, 1024]  # YOLOv8n-p2: more parameters due to P2 head
+
+# YOLOv8n backbone (与 baseline 完全相同)
+backbone:
+  # [from, repeats, module, args]
+  - [-1, 1, Conv, [64, 3, 2]]       # 0-P1/2
+  - [-1, 1, Conv, [128, 3, 2]]      # 1-P2/4
+  - [-1, 3, C2f, [128, True]]       # 2
+  - [-1, 1, Conv, [256, 3, 2]]      # 3-P3/8
+  - [-1, 6, C2f, [256, True]]       # 4
+  - [-1, 1, Conv, [512, 3, 2]]      # 5-P4/16
+  - [-1, 6, C2f, [512, True]]       # 6
+  - [-1, 1, Conv, [1024, 3, 2]]     # 7-P5/32
+  - [-1, 3, C2f, [1024, True]]      # 8
+  - [-1, 1, SPPF, [1024, 5]]        # 9
+
+# YOLOv8n head with P2 detection
+head:
+  # P5 → P4
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]
+  - [[-1, 6], 1, Concat, [1]]       # cat backbone P4
+  - [-1, 3, C2f, [512]]             # 12
+
+  # P4 → P3
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]
+  - [[-1, 4], 1, Concat, [1]]       # cat backbone P3
+  - [-1, 3, C2f, [256]]             # 15
+
+  # P3 → P2 (新增：小目标检测头)
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]
+  - [[-1, 2], 1, Concat, [1]]       # cat backbone P2 ← 新增
+  - [-1, 3, C2f, [128]]             # 18 (P2/4-tiny) ← 新增
+
+  # P2 → P3
+  - [-1, 1, Conv, [128, 3, 2]]
+  - [[-1, 15], 1, Concat, [1]]      # cat head P3
+  - [-1, 3, C2f, [256]]             # 21 (P3/8-small)
+
+  # P3 → P4
+  - [-1, 1, Conv, [256, 3, 2]]
+  - [[-1, 12], 1, Concat, [1]]      # cat head P4
+  - [-1, 3, C2f, [512]]             # 24 (P4/16-medium)
+
+  # P4 → P5
+  - [-1, 1, Conv, [512, 3, 2]]
+  - [[-1, 9], 1, Concat, [1]]       # cat head P5
+  - [-1, 3, C2f, [1024]]            # 27 (P5/32-large)
+
+  - [[18, 21, 24, 27], 1, Detect, [nc]] # Detect(P2, P3, P4, P5) ← 改动：4 个检测头
